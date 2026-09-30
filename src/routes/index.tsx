@@ -326,7 +326,7 @@ function Index() {
           setupAnimation(obj);
         },
         undefined,
-        (error: unknown) => {
+        async (error: unknown) => {
           console.warn("Plane model unavailable, using built-in geometry:", error);
           const { mergeGeometries } = await import(
             "three/examples/jsm/utils/BufferGeometryUtils.js"
