@@ -68,7 +68,7 @@ function Index() {
           this.scene = new THREE.Scene();
 
           for (let ii = 0; ii < this.views.length; ++ii) {
-            const view = this.views[ii];
+            const view = this.views[ii]!;
             const camera = new THREE.PerspectiveCamera(
               45,
               window.innerWidth / window.innerHeight,
@@ -138,7 +138,7 @@ function Index() {
 
         render = () => {
           for (let ii = 0; ii < this.views.length; ++ii) {
-            const view = this.views[ii];
+            const view = this.views[ii]!;
             const camera = view.camera;
             const bottom = Math.floor(this.h * view.bottom);
             const height = Math.floor(this.h * view.height);
@@ -157,7 +157,7 @@ function Index() {
           this.w = window.innerWidth;
           this.h = window.innerHeight;
           for (let ii = 0; ii < this.views.length; ++ii) {
-            const camera = this.views[ii].camera;
+            const camera = this.views[ii]!.camera;
             camera.aspect = this.w / this.h;
             const camZ = (window.screen.width - this.w) / 3;
             camera.position.z = camZ < 180 ? 180 : camZ;
