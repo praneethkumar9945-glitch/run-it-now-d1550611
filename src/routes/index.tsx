@@ -310,62 +310,109 @@ function Index() {
       gsap.set("#line-wingspan", { strokeDasharray: 110, strokeDashoffset: 110 });
       gsap.set("#circle-phalange", { strokeDasharray: 94, strokeDashoffset: 94 });
 
-      const manager = new THREE.LoadingManager();
-      const loader = new OBJLoader(manager);
-      loader.load(
-        "https://assets.codepen.io/557388/1405+Plane_1.obj",
-        (obj: any) => {
-          obj.traverse((child: any) => {
-            child.material = new THREE.MeshPhongMaterial({
-              color: 0xffffff,
-              specular: 0xffffff,
-              shininess: 5,
-              flatShading: true,
-            });
-          });
-          setupAnimation(obj);
-        },
-        undefined,
-        async (error: unknown) => {
-          console.warn("Plane model unavailable, using built-in geometry:", error);
-          const { mergeGeometries } = await import(
-            "three/examples/jsm/utils/BufferGeometryUtils.js"
-          );
-          const parts: any[] = [];
-          const push = (g: any, pos: [number, number, number], rot?: [number, number, number]) => {
-            if (rot) g.rotateX(rot[0]), g.rotateY(rot[1]), g.rotateZ(rot[2]);
-            g.translate(pos[0], pos[1], pos[2]);
-            parts.push(g);
-          };
-          // fuselage
-          push(new THREE.CylinderGeometry(4, 4, 46, 16), [0, 0, 0], [Math.PI / 2, 0, 0]);
-          push(new THREE.ConeGeometry(4, 10, 16), [0, 0, 28], [Math.PI / 2, 0, 0]);
-          push(new THREE.ConeGeometry(4, 12, 16), [0, 0, -29], [-Math.PI / 2, 0, 0]);
-          // wings
-          push(new THREE.BoxGeometry(56, 1.2, 12), [0, 0, 2]);
-          // tail planes
-          push(new THREE.BoxGeometry(20, 1, 6), [0, 2, -24]);
-          push(new THREE.BoxGeometry(1, 11, 8), [0, 7, -25]);
-          // engines
-          push(new THREE.CylinderGeometry(2.4, 2.4, 9, 12), [14, -3, 4], [Math.PI / 2, 0, 0]);
-          push(new THREE.CylinderGeometry(2.4, 2.4, 9, 12), [-14, -3, 4], [Math.PI / 2, 0, 0]);
+      // Build a detailed passenger airliner (nose points +Z)
+      const buildAirliner = () => {
+        const group = new THREE.Group();
+        const body = new THREE.MeshStandardMaterial({ color: 0xf4f6f8, metalness: 0.35, roughness: 0.35 });
+        const accent = new THREE.MeshStandardMaterial({ color: 0x1f4e8c, metalness: 0.3, roughness: 0.4 });
+        const dark = new THREE.MeshStandardMaterial({ color: 0x1a1d22, metalness: 0.6, roughness: 0.3 });
+        const glass = new THREE.MeshStandardMaterial({ color: 0x0d1b2a, metalness: 0.9, roughness: 0.1 });
+        const add = (g: any, m: any, p: [number, number, number] = [0, 0, 0], r?: [number, number, number]) => {
+          const mesh = new THREE.Mesh(g, m);
+          mesh.position.set(...p);
+          if (r) mesh.rotation.set(...r);
+          group.add(mesh);
+          return mesh;
+        };
 
-          const merged = mergeGeometries(parts, false);
-          merged.center();
-          const mesh = new THREE.Mesh(
-            merged,
-            new THREE.MeshPhongMaterial({
-              color: 0xffffff,
-              specular: 0xffffff,
-              shininess: 5,
-              flatShading: true,
-            }),
-          );
-          const fallbackModel = new THREE.Group();
-          fallbackModel.add(mesh);
-          setupAnimation(fallbackModel);
-        },
-      );
+        // Fuselage via lathe profile (radius, length)
+        const L = 64;
+        const prof: any[] = [];
+        for (let i = 0; i <= 40; i++) {
+          const t = i / 40;
+          let r: number;
+          if (t < 0.12) r = 4 * Math.sqrt(t / 0.12) ** 0.9; // rounded nose
+          else if (t < 0.72) r = 4;
+          else r = 4 * (1 - ((t - 0.72) / 0.28) ** 1.6) + 0.5 * ((t - 0.72) / 0.28);
+          prof.push(new THREE.Vector2(Math.max(r, 0.01), t * L));
+        }
+        const fus = new THREE.LatheGeometry(prof, 40);
+        fus.rotateX(-Math.PI / 2); // length along -Z
+        fus.translate(0, 0, L / 2); // nose at +32
+        add(fus, body);
+
+        // Tail upsweep hint & belly stripe
+        add(new THREE.CylinderGeometry(4.05, 4.05, 40, 40, 1, true, Math.PI * 0.55, Math.PI * 0.9), accent, [0, 0, 2], [Math.PI / 2, 0, 0]);
+
+        // Cockpit windows
+        add(new THREE.SphereGeometry(2.6, 20, 12, 0, Math.PI * 2, 0, Math.PI / 5), glass, [0, 1.6, 26.5], [Math.PI / 2.6, 0, 0]);
+        // Cabin windows
+        const win = new THREE.BoxGeometry(0.25, 0.7, 0.55);
+        for (let z = 22; z > -14; z -= 1.6) {
+          add(win, glass, [4.0, 1.2, z]);
+          add(win, glass, [-4.0, 1.2, z]);
+        }
+        // Doors
+        const door = new THREE.BoxGeometry(0.25, 2.4, 1.3);
+        [23.5, -12].forEach((z) => {
+          add(door, accent, [4.02, 0.4, z]);
+          add(door, accent, [-4.02, 0.4, z]);
+        });
+
+        // Swept wing helper (side = 1 right, -1 left)
+        const wing = (side: number, rootZ: number, span: number, rootChord: number, tipChord: number, sweep: number, thick: number, y: number, dihedral: number, mat: any) => {
+          const s = new THREE.Shape();
+          s.moveTo(0, rootZ);
+          s.lineTo(side * span, rootZ - sweep);
+          s.lineTo(side * span, rootZ - sweep - tipChord);
+          s.lineTo(0, rootZ - rootChord);
+          s.lineTo(0, rootZ);
+          const g = new THREE.ExtrudeGeometry(s, { depth: thick, bevelEnabled: true, bevelThickness: thick * 0.4, bevelSize: 0.3, bevelSegments: 2 });
+          g.rotateX(Math.PI / 2);
+          g.rotateZ(side * dihedral);
+          g.translate(0, y + thick / 2, 0);
+          add(g, mat);
+          return { tipX: side * span * Math.cos(dihedral), tipY: y + span * Math.sin(dihedral), tipZ: rootZ - sweep };
+        };
+
+        // Main wings + winglets
+        [1, -1].forEach((side) => {
+          const tip = wing(side, 8, 34, 14, 3.5, 17, 0.8, -1.8, 0.08, body);
+          const wl = new THREE.Shape();
+          wl.moveTo(0, 0); wl.lineTo(-1.5, 4.5); wl.lineTo(-3, 4.5); wl.lineTo(-3.5, 0); wl.lineTo(0, 0);
+          const wg = new THREE.ExtrudeGeometry(wl, { depth: 0.3, bevelEnabled: false });
+          wg.rotateY(-Math.PI / 2);
+          const m = add(wg, accent, [tip.tipX, tip.tipY, tip.tipZ]);
+          m.rotation.z = -side * 0.15;
+
+          // Engine under wing
+          const ex = side * 11;
+          const ez = 7;
+          add(new THREE.CylinderGeometry(2.3, 1.9, 9, 28), body, [ex, -4.8, ez], [Math.PI / 2, 0, 0]);
+          add(new THREE.TorusGeometry(2.1, 0.3, 10, 28), accent, [ex, -4.8, ez + 4.5]);
+          add(new THREE.CircleGeometry(1.9, 28), dark, [ex, -4.8, ez + 4.3]);
+          add(new THREE.ConeGeometry(0.6, 1.6, 16), dark, [ex, -4.8, ez + 4.9], [Math.PI / 2, 0, 0]);
+          add(new THREE.ConeGeometry(1.4, 3, 20), dark, [ex, -4.8, ez - 5.8], [-Math.PI / 2, 0, 0]);
+          add(new THREE.BoxGeometry(0.6, 2.6, 6), body, [ex, -2.6, ez - 1]);
+
+          // Horizontal stabilizer
+          wing(side, -21, 12, 7, 2.5, 6, 0.5, 0.8, 0.12, body);
+        });
+
+        // Vertical fin
+        const fin = new THREE.Shape();
+        fin.moveTo(0, 0); fin.lineTo(-9, 12); fin.lineTo(-13, 12); fin.lineTo(-12, 0); fin.lineTo(0, 0);
+        const fg = new THREE.ExtrudeGeometry(fin, { depth: 0.6, bevelEnabled: true, bevelThickness: 0.2, bevelSize: 0.2, bevelSegments: 2 });
+        fg.rotateY(-Math.PI / 2);
+        add(fg, accent, [0.3, 2.5, -17]);
+
+        // Landing gear fairing
+        add(new THREE.BoxGeometry(6, 1.6, 10), body, [0, -3.6, 0]);
+
+        return group;
+      };
+
+      setupAnimation(buildAirliner());
     })();
 
     return () => {
