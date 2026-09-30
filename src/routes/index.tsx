@@ -301,7 +301,7 @@ function Index() {
             delay,
           );
           tl.to(scene.light.position, { duration: sectionDuration, x: 0, y: 0, z: 0 }, delay);
-        }, rootRef);
+        });
 
         cleanups.push(() => ctx.revert());
       }
@@ -352,8 +352,6 @@ function Index() {
 
           const merged = mergeGeometries(parts, false);
           merged.center();
-          merged.computeBoundingSphere();
-          console.log('PLANE_BS', JSON.stringify(merged.boundingSphere));
           const mesh = new THREE.Mesh(
             merged,
             new THREE.MeshPhongMaterial({
