@@ -1,24 +1,470 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Airplanes — The beginners guide" },
+      {
+        name: "description",
+        content:
+          "A scroll-driven 3D airplane story: watch a wireframe plane fly, bank and climb through the facts and figures.",
+      },
+      { property: "og:title", content: "Airplanes — The beginners guide" },
+      {
+        property: "og:description",
+        content:
+          "A scroll-driven 3D airplane story: watch a wireframe plane fly, bank and climb through the facts and figures.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    const cleanups: Array<() => void> = [];
+
+    (async () => {
+      const [{ gsap }, { ScrollTrigger }, { ScrollToPlugin }, THREE, { OBJLoader }] =
+        await Promise.all([
+          import("gsap"),
+          import("gsap/ScrollTrigger"),
+          import("gsap/ScrollToPlugin"),
+          import("three"),
+          import("three/examples/jsm/loaders/OBJLoader.js"),
+        ]);
+      if (disposed) return;
+      gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+      class Scene {
+        views: Array<{ bottom: number; height: number; camera: any }>;
+        renderer: any;
+        scene: any;
+        light: any;
+        softLight: any;
+        modelGroup: any;
+        w = 0;
+        h = 0;
+
+        constructor(model: any) {
+          this.views = [
+            { bottom: 0, height: 1, camera: null },
+            { bottom: 0, height: 0, camera: null },
+          ];
+
+          this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+          this.renderer.shadowMap.enabled = true;
+          this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          this.renderer.setPixelRatio(window.devicePixelRatio);
+          document.body.appendChild(this.renderer.domElement);
+
+          this.scene = new THREE.Scene();
+
+          for (let ii = 0; ii < this.views.length; ++ii) {
+            const view = this.views[ii]!;
+            const camera = new THREE.PerspectiveCamera(
+              45,
+              window.innerWidth / window.innerHeight,
+              1,
+              2000,
+            );
+            camera.position.fromArray([0, 0, 180]);
+            camera.layers.disableAll();
+            camera.layers.enable(ii);
+            view.camera = camera;
+            camera.lookAt(new THREE.Vector3(0, 5, 0));
+          }
+
+          this.light = new THREE.PointLight(0xffffff, 0.75);
+          this.light.position.z = 150;
+          this.light.position.x = 70;
+          this.light.position.y = -20;
+          this.scene.add(this.light);
+
+          this.softLight = new THREE.AmbientLight(0xffffff, 1.5);
+          this.scene.add(this.softLight);
+
+          this.onResize();
+          window.addEventListener("resize", this.onResize, false);
+
+          let raf = 0;
+          const animate = () => {
+            this.render();
+            raf = requestAnimationFrame(animate);
+          };
+          animate();
+
+          cleanups.push(() => {
+            cancelAnimationFrame(raf);
+            window.removeEventListener("resize", this.onResize);
+            this.renderer.domElement.remove();
+            this.renderer.dispose();
+          });
+
+          try {
+            const edges = new THREE.EdgesGeometry(model.children[0].geometry);
+            const line = new THREE.LineSegments(edges);
+            (line.material as any).depthTest = false;
+            (line.material as any).opacity = 0.5;
+            (line.material as any).transparent = true;
+            line.position.x = 0.5;
+            line.position.z = -1;
+            line.position.y = 0.2;
+
+            this.modelGroup = new THREE.Group();
+            model.layers.set(0);
+            line.layers.set(1);
+            this.modelGroup.add(model);
+            this.modelGroup.add(line);
+          } catch (e) {
+            console.error("Model geometry error:", e);
+            this.modelGroup = new THREE.Group();
+            this.modelGroup.add(
+              new THREE.Mesh(
+                new THREE.PlaneGeometry(10, 10),
+                new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+              ),
+            );
+          }
+          this.scene.add(this.modelGroup);
+        }
+
+        render = () => {
+          for (let ii = 0; ii < this.views.length; ++ii) {
+            const view = this.views[ii]!;
+            const camera = view.camera;
+            const bottom = Math.floor(this.h * view.bottom);
+            const height = Math.floor(this.h * view.height);
+
+            this.renderer.setViewport(0, 0, this.w, this.h);
+            this.renderer.setScissor(0, bottom, this.w, height);
+            this.renderer.setScissorTest(true);
+
+            camera.aspect = this.w / this.h;
+            camera.updateProjectionMatrix();
+            this.renderer.render(this.scene, camera);
+          }
+        };
+
+        onResize = () => {
+          this.w = window.innerWidth;
+          this.h = window.innerHeight;
+          for (let ii = 0; ii < this.views.length; ++ii) {
+            const camera = this.views[ii]!.camera;
+            camera.aspect = this.w / this.h;
+            const camZ = (window.screen.width - this.w) / 3;
+            camera.position.z = camZ < 180 ? 180 : camZ;
+            camera.updateProjectionMatrix();
+          }
+          this.renderer.setSize(this.w, this.h);
+          this.render();
+        };
+      }
+
+      function setupAnimation(model: any) {
+        if (disposed) return;
+        const scene = new Scene(model);
+        const plane = scene.modelGroup;
+
+        const ctx = gsap.context(() => {
+          gsap.fromTo(
+            "canvas",
+            { x: "50%", autoAlpha: 0 },
+            { duration: 1, x: "0%", autoAlpha: 1, delay: 0.5 },
+          );
+          gsap.to(".loading", { autoAlpha: 0, delay: 3 });
+          gsap.to(".scroll-cta", { opacity: 1 });
+          gsap.set("svg", { autoAlpha: 1 });
+
+          const tau = Math.PI * 2;
+          gsap.set(plane.rotation, { y: tau * -0.25 });
+          gsap.set(plane.position, { x: 80, y: -32, z: -60 });
+          scene.render();
+
+          const sectionDuration = 1;
+
+          gsap.to("#line-length", {
+            strokeDashoffset: 0,
+            scrollTrigger: { trigger: ".length", scrub: true, start: "top bottom", end: "top top" },
+          });
+          gsap.to("#line-wingspan", {
+            strokeDashoffset: 0,
+            scrollTrigger: {
+              trigger: ".wingspan",
+              scrub: true,
+              start: "top 25%",
+              end: "bottom 50%",
+            },
+          });
+          gsap.to("#circle-phalange", {
+            strokeDashoffset: 0,
+            scrollTrigger: {
+              trigger: ".phalange",
+              scrub: true,
+              start: "top 50%",
+              end: "bottom 100%",
+            },
+          });
+          gsap.to("#line-length", {
+            opacity: 0,
+            strokeDashoffset: 80,
+            scrollTrigger: { trigger: ".length", scrub: true, start: "top top", end: "bottom top" },
+          });
+          gsap.to("#line-wingspan", {
+            opacity: 0,
+            strokeDashoffset: 110,
+            scrollTrigger: {
+              trigger: ".wingspan",
+              scrub: true,
+              start: "top top",
+              end: "bottom top",
+            },
+          });
+          gsap.to("#circle-phalange", {
+            opacity: 0,
+            strokeDashoffset: 94,
+            scrollTrigger: {
+              trigger: ".phalange",
+              scrub: true,
+              start: "top top",
+              end: "bottom top",
+            },
+          });
+
+          const tl = gsap.timeline({
+            onUpdate: scene.render,
+            scrollTrigger: {
+              trigger: ".content",
+              scrub: true,
+              start: "top top",
+              end: "bottom bottom",
+            },
+            defaults: { duration: sectionDuration, ease: "power2.inOut" },
+          });
+
+          let delay = 0;
+          tl.to(".scroll-cta", { duration: 0.25, opacity: 0 }, delay);
+          tl.to(plane.position, { x: -10, ease: "power1.in" }, delay);
+
+          delay += sectionDuration;
+          tl.to(plane.rotation, { x: tau * 0.25, y: 0, z: -tau * 0.05, ease: "power1.inOut" }, delay);
+          tl.to(plane.position, { x: -40, y: 0, z: -60, ease: "power1.inOut" }, delay);
+
+          delay += sectionDuration;
+          tl.to(plane.rotation, { x: tau * 0.25, y: 0, z: tau * 0.05, ease: "power3.inOut" }, delay);
+          tl.to(plane.position, { x: 40, y: 0, z: -60, ease: "power2.inOut" }, delay);
+
+          delay += sectionDuration;
+          tl.to(plane.rotation, { x: tau * 0.2, y: 0, z: -tau * 0.1, ease: "power3.inOut" }, delay);
+          tl.to(plane.position, { x: -40, y: 0, z: -30, ease: "power2.inOut" }, delay);
+
+          delay += sectionDuration;
+          tl.to(plane.rotation, { x: 0, z: 0, y: tau * 0.25 }, delay);
+          tl.to(plane.position, { x: 0, y: -10, z: 50 }, delay);
+
+          delay += sectionDuration * 2;
+          tl.to(plane.rotation, { x: tau * 0.25, y: tau * 0.5, z: 0, ease: "power4.inOut" }, delay);
+          tl.to(plane.position, { z: 30, ease: "power4.inOut" }, delay);
+
+          delay += sectionDuration;
+          tl.to(plane.rotation, { x: tau * 0.25, y: tau * 0.5, z: 0, ease: "power4.inOut" }, delay);
+          tl.to(plane.position, { z: 60, x: 30, ease: "power4.inOut" }, delay);
+
+          delay += sectionDuration;
+          tl.to(
+            plane.rotation,
+            { x: tau * 0.35, y: tau * 0.75, z: tau * 0.6, ease: "power4.inOut" },
+            delay,
+          );
+          tl.to(plane.position, { z: 100, x: 20, y: 0, ease: "power4.inOut" }, delay);
+
+          delay += sectionDuration;
+          tl.to(plane.rotation, { x: tau * 0.15, y: tau * 0.85, z: 0, ease: "power1.in" }, delay);
+          tl.to(plane.position, { z: -150, x: 0, y: 0, ease: "power1.inOut" }, delay);
+
+          delay += sectionDuration;
+          tl.to(
+            plane.rotation,
+            { duration: sectionDuration, x: -tau * 0.05, y: tau, z: -tau * 0.1, ease: "none" },
+            delay,
+          );
+          tl.to(
+            plane.position,
+            { duration: sectionDuration, x: 0, y: 30, z: 320, ease: "power1.in" },
+            delay,
+          );
+          tl.to(scene.light.position, { duration: sectionDuration, x: 0, y: 0, z: 0 }, delay);
+        });
+
+        cleanups.push(() => ctx.revert());
+      }
+
+      gsap.set("#line-length", { strokeDasharray: 80, strokeDashoffset: 80 });
+      gsap.set("#line-wingspan", { strokeDasharray: 110, strokeDashoffset: 110 });
+      gsap.set("#circle-phalange", { strokeDasharray: 94, strokeDashoffset: 94 });
+
+      const manager = new THREE.LoadingManager();
+      const loader = new OBJLoader(manager);
+      loader.load(
+        "https://assets.codepen.io/557388/1405+Plane_1.obj",
+        (obj: any) => {
+          obj.traverse((child: any) => {
+            child.material = new THREE.MeshPhongMaterial({
+              color: 0xffffff,
+              specular: 0xffffff,
+              shininess: 5,
+              flatShading: true,
+            });
+          });
+          setupAnimation(obj);
+        },
+        undefined,
+        async (error: unknown) => {
+          console.warn("Plane model unavailable, using built-in geometry:", error);
+          const { mergeGeometries } = await import(
+            "three/examples/jsm/utils/BufferGeometryUtils.js"
+          );
+          const parts: any[] = [];
+          const push = (g: any, pos: [number, number, number], rot?: [number, number, number]) => {
+            if (rot) g.rotateX(rot[0]), g.rotateY(rot[1]), g.rotateZ(rot[2]);
+            g.translate(pos[0], pos[1], pos[2]);
+            parts.push(g);
+          };
+          // fuselage
+          push(new THREE.CylinderGeometry(4, 4, 46, 16), [0, 0, 0], [Math.PI / 2, 0, 0]);
+          push(new THREE.ConeGeometry(4, 10, 16), [0, 0, 28], [Math.PI / 2, 0, 0]);
+          push(new THREE.ConeGeometry(4, 12, 16), [0, 0, -29], [-Math.PI / 2, 0, 0]);
+          // wings
+          push(new THREE.BoxGeometry(56, 1.2, 12), [0, 0, 2]);
+          // tail planes
+          push(new THREE.BoxGeometry(20, 1, 6), [0, 2, -24]);
+          push(new THREE.BoxGeometry(1, 11, 8), [0, 7, -25]);
+          // engines
+          push(new THREE.CylinderGeometry(2.4, 2.4, 9, 12), [14, -3, 4], [Math.PI / 2, 0, 0]);
+          push(new THREE.CylinderGeometry(2.4, 2.4, 9, 12), [-14, -3, 4], [Math.PI / 2, 0, 0]);
+
+          const merged = mergeGeometries(parts, false);
+          merged.center();
+          const mesh = new THREE.Mesh(
+            merged,
+            new THREE.MeshPhongMaterial({
+              color: 0xffffff,
+              specular: 0xffffff,
+              shininess: 5,
+              flatShading: true,
+            }),
+          );
+          const fallbackModel = new THREE.Group();
+          fallbackModel.add(mesh);
+          setupAnimation(fallbackModel);
+        },
+      );
+    })();
+
+    return () => {
+      disposed = true;
+      cleanups.forEach((fn) => fn());
+    };
+  }, []);
+
+  const scrollToBottom = async () => {
+    const { gsap } = await import("gsap");
+    gsap.to(window, {
+      duration: 1.5,
+      scrollTo: { y: document.body.scrollHeight, autoKill: false },
+      ease: "power2.inOut",
+    });
+  };
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div ref={rootRef} className="plane-app">
+      <button id="contact-btn" className="contact-btn" onClick={scrollToBottom}>
+        Contact
+      </button>
+      <div className="content">
+        <div className="loading">Loading</div>
+        <div className="trigger" />
+        <div className="section">
+          <h1>Airplanes.</h1>
+          <h3>The beginners guide.</h3>
+          <p>You've probably forgotten what these are.</p>
+          <div className="scroll-cta">Scroll</div>
+        </div>
+        <div className="section right">
+          <h2>They're kinda like buses...</h2>
+        </div>
+        <div className="ground-container">
+          <div className="section right">
+            <h2>..except they leave the ground.</h2>
+            <p>Saaay what!?.</p>
+          </div>
+          <div className="section">
+            <h2>They fly through the sky.</h2>
+            <p>For realsies!</p>
+          </div>
+          <div className="section right">
+            <h2>Defying all known physical laws.</h2>
+            <p>It's actual magic!</p>
+          </div>
+        </div>
+
+        <div className="blueprint">
+          <svg width="100%" height="100%" viewBox="0 0 100 100">
+            <line
+              id="line-length"
+              x1="10"
+              y1="80"
+              x2="90"
+              y2="80"
+              strokeWidth="0.5"
+              stroke="white"
+            />
+            <path
+              id="line-wingspan"
+              d="M10 50, L40 35, M60 35 L90 50"
+              strokeWidth="0.5"
+              stroke="white"
+              fill="none"
+            />
+            <circle
+              id="circle-phalange"
+              cx="60"
+              cy="60"
+              r="15"
+              fill="transparent"
+              strokeWidth="0.5"
+              stroke="white"
+            />
+          </svg>
+          <div className="section dark">
+            <h2>The facts and figures.</h2>
+            <p>Lets get into the nitty gritty...</p>
+          </div>
+          <div className="section dark length">
+            <h2>Length.</h2>
+            <p>Long.</p>
+          </div>
+          <div className="section dark wingspan">
+            <h2>Wing Span.</h2>
+            <p>I dunno, longer than a cat probably.</p>
+          </div>
+          <div className="section dark phalange">
+            <h2>Left Phalange</h2>
+            <p>Missing</p>
+          </div>
+          <div className="section dark">
+            <h2>Engines</h2>
+            <p>Turbine funtime</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
