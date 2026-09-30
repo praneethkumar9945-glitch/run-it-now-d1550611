@@ -352,6 +352,8 @@ function Index() {
 
           const merged = mergeGeometries(parts, false);
           merged.center();
+          merged.computeBoundingSphere();
+          console.log('PLANE_BS', JSON.stringify(merged.boundingSphere));
           const mesh = new THREE.Mesh(
             merged,
             new THREE.MeshPhongMaterial({
