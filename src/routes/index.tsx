@@ -327,15 +327,43 @@ function Index() {
         },
         undefined,
         (error: unknown) => {
-          console.error("OBJLoader error:", error);
-          const dummyModel = new THREE.Group();
-          dummyModel.add(
-            new THREE.Mesh(
-              new THREE.BoxGeometry(5, 1, 10),
-              new THREE.MeshPhongMaterial({ color: 0x444444 }),
-            ),
+          console.warn("Plane model unavailable, using built-in geometry:", error);
+          const { mergeGeometries } = await import(
+            "three/examples/jsm/utils/BufferGeometryUtils.js"
           );
-          setupAnimation(dummyModel);
+          const parts: any[] = [];
+          const push = (g: any, pos: [number, number, number], rot?: [number, number, number]) => {
+            if (rot) g.rotateX(rot[0]), g.rotateY(rot[1]), g.rotateZ(rot[2]);
+            g.translate(pos[0], pos[1], pos[2]);
+            parts.push(g);
+          };
+          // fuselage
+          push(new THREE.CylinderGeometry(4, 4, 46, 16), [0, 0, 0], [Math.PI / 2, 0, 0]);
+          push(new THREE.ConeGeometry(4, 10, 16), [0, 0, 28], [Math.PI / 2, 0, 0]);
+          push(new THREE.ConeGeometry(4, 12, 16), [0, 0, -29], [-Math.PI / 2, 0, 0]);
+          // wings
+          push(new THREE.BoxGeometry(56, 1.2, 12), [0, 0, 2]);
+          // tail planes
+          push(new THREE.BoxGeometry(20, 1, 6), [0, 2, -24]);
+          push(new THREE.BoxGeometry(1, 11, 8), [0, 7, -25]);
+          // engines
+          push(new THREE.CylinderGeometry(2.4, 2.4, 9, 12), [14, -3, 4], [Math.PI / 2, 0, 0]);
+          push(new THREE.CylinderGeometry(2.4, 2.4, 9, 12), [-14, -3, 4], [Math.PI / 2, 0, 0]);
+
+          const merged = mergeGeometries(parts, false);
+          merged.center();
+          const mesh = new THREE.Mesh(
+            merged,
+            new THREE.MeshPhongMaterial({
+              color: 0xffffff,
+              specular: 0xffffff,
+              shininess: 5,
+              flatShading: true,
+            }),
+          );
+          const fallbackModel = new THREE.Group();
+          fallbackModel.add(mesh);
+          setupAnimation(fallbackModel);
         },
       );
     })();
