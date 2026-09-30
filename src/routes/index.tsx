@@ -381,7 +381,7 @@ function Index() {
           const wl = new THREE.Shape();
           wl.moveTo(0, 0); wl.lineTo(-1.5, 4.5); wl.lineTo(-3, 4.5); wl.lineTo(-3.5, 0); wl.lineTo(0, 0);
           const wg = new THREE.ExtrudeGeometry(wl, { depth: 0.3, bevelEnabled: false });
-          wg.rotateY(Math.PI / 2);
+          wg.rotateY(-Math.PI / 2);
           const m = add(wg, accent, [tip.tipX, tip.tipY, tip.tipZ]);
           m.rotation.z = -side * 0.15;
 
@@ -403,8 +403,8 @@ function Index() {
         const fin = new THREE.Shape();
         fin.moveTo(0, 0); fin.lineTo(-9, 12); fin.lineTo(-13, 12); fin.lineTo(-12, 0); fin.lineTo(0, 0);
         const fg = new THREE.ExtrudeGeometry(fin, { depth: 0.6, bevelEnabled: true, bevelThickness: 0.2, bevelSize: 0.2, bevelSegments: 2 });
-        fg.rotateY(Math.PI / 2);
-        add(fg, accent, [-0.3, 2.5, -17]);
+        fg.rotateY(-Math.PI / 2);
+        add(fg, accent, [0.3, 2.5, -17]);
 
         // Landing gear fairing
         add(new THREE.BoxGeometry(6, 1.6, 10), body, [0, -3.6, 0]);
