@@ -446,7 +446,6 @@ function Index() {
           <h1>Airplanes.</h1>
           <h3>The beginners guide.</h3>
           <p>You've probably forgotten what these are.</p>
-          <img src={watchGold} alt="Luxury gold chronograph watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           <div className="scroll-cta">Scroll</div>
         </div>
         <div className="section right">
