@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import watchGold from "@/assets/watch-gold.jpg";
+import watchSteel from "@/assets/watch-steel.jpg";
+import watchRosegold from "@/assets/watch-rosegold.jpg";
+import watchBlack from "@/assets/watch-black.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -442,23 +446,28 @@ function Index() {
           <h1>Airplanes.</h1>
           <h3>The beginners guide.</h3>
           <p>You've probably forgotten what these are.</p>
+          <img src={watchGold} alt="Luxury gold chronograph watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           <div className="scroll-cta">Scroll</div>
         </div>
         <div className="section right">
           <h2>They're kinda like buses...</h2>
+          <img src={watchSteel} alt="Luxury steel dive watch" className="watch-img" width={1024} height={1024} loading="lazy" />
         </div>
         <div className="ground-container">
           <div className="section right">
             <h2>..except they leave the ground.</h2>
             <p>Saaay what!?.</p>
+            <img src={watchRosegold} alt="Luxury rose gold watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           </div>
           <div className="section">
             <h2>They fly through the sky.</h2>
             <p>For realsies!</p>
+            <img src={watchBlack} alt="Luxury black skeleton watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           </div>
           <div className="section right">
             <h2>Defying all known physical laws.</h2>
             <p>It's actual magic!</p>
+            <img src={watchGold} alt="Luxury gold chronograph watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           </div>
         </div>
 
@@ -493,22 +502,27 @@ function Index() {
           <div className="section dark">
             <h2>The facts and figures.</h2>
             <p>Lets get into the nitty gritty...</p>
+            <img src={watchSteel} alt="Luxury steel dive watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           </div>
           <div className="section dark length">
             <h2>Length.</h2>
             <p>Long.</p>
+            <img src={watchBlack} alt="Luxury black skeleton watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           </div>
           <div className="section dark wingspan">
             <h2>Wing Span.</h2>
             <p>I dunno, longer than a cat probably.</p>
+            <img src={watchGold} alt="Luxury gold chronograph watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           </div>
           <div className="section dark phalange">
             <h2>Left Phalange</h2>
             <p>Missing</p>
+            <img src={watchRosegold} alt="Luxury rose gold watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           </div>
           <div className="section dark">
             <h2>Engines</h2>
             <p>Turbine funtime</p>
+            <img src={watchSteel} alt="Luxury steel dive watch" className="watch-img" width={1024} height={1024} loading="lazy" />
           </div>
         </div>
       </div>
