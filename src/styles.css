@@ -302,6 +302,19 @@ body:has(.plane-app) canvas {
   border-color: black;
 }
 
+.plane-app .watch-img {
+  display: block;
+  width: min(40vmin, 360px);
+  height: auto;
+  margin-top: 3vmin;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+.plane-app .section.right .watch-img {
+  margin-left: auto;
+}
+
 @media only screen and (max-width: 500px) {
   .plane-app .contact-btn {
     top: 10px;
