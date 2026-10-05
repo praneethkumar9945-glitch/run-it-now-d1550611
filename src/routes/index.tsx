@@ -12,13 +12,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A scroll-driven 3D airplane story: watch a wireframe plane fly, bank and climb through the facts and figures.",
+          "A scroll-driven 3D passenger airplane story: follow a realistic jet as it flies, banks and climbs.",
       },
       { property: "og:title", content: "Airplanes — The beginners guide" },
       {
         property: "og:description",
         content:
-          "A scroll-driven 3D airplane story: watch a wireframe plane fly, bank and climb through the facts and figures.",
+          "A scroll-driven 3D passenger airplane story: follow a realistic jet as it flies, banks and climbs.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -66,7 +66,7 @@ function Index() {
           this.renderer.setSize(window.innerWidth, window.innerHeight);
           this.renderer.shadowMap.enabled = true;
           this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-          this.renderer.setPixelRatio(window.devicePixelRatio);
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
           document.body.appendChild(this.renderer.domElement);
 
           this.scene = new THREE.Scene();
@@ -86,14 +86,20 @@ function Index() {
             camera.lookAt(new THREE.Vector3(0, 5, 0));
           }
 
-          this.light = new THREE.PointLight(0xffffff, 0.75);
+          this.light = new THREE.PointLight(0xffffff, 2);
           this.light.position.z = 150;
           this.light.position.x = 70;
           this.light.position.y = -20;
           this.scene.add(this.light);
 
-          this.softLight = new THREE.AmbientLight(0xffffff, 1.5);
+          this.softLight = new THREE.AmbientLight(0xffffff, 2);
           this.scene.add(this.softLight);
+          const fill = new THREE.DirectionalLight(0xdceafb, 2);
+          fill.position.set(-60, 80, 40);
+          this.scene.add(fill);
+          const rim = new THREE.DirectionalLight(0xffffff, 1.5);
+          rim.position.set(30, 20, -90);
+          this.scene.add(rim);
 
           this.onResize();
           window.addEventListener("resize", this.onResize, false);
@@ -112,31 +118,7 @@ function Index() {
             this.renderer.dispose();
           });
 
-          try {
-            const edges = new THREE.EdgesGeometry(model.children[0].geometry);
-            const line = new THREE.LineSegments(edges);
-            (line.material as any).depthTest = false;
-            (line.material as any).opacity = 0.5;
-            (line.material as any).transparent = true;
-            line.position.x = 0.5;
-            line.position.z = -1;
-            line.position.y = 0.2;
-
-            this.modelGroup = new THREE.Group();
-            model.layers.set(0);
-            line.layers.set(1);
-            this.modelGroup.add(model);
-            this.modelGroup.add(line);
-          } catch (e) {
-            console.error("Model geometry error:", e);
-            this.modelGroup = new THREE.Group();
-            this.modelGroup.add(
-              new THREE.Mesh(
-                new THREE.PlaneGeometry(10, 10),
-                new THREE.MeshBasicMaterial({ color: 0xff0000 }),
-              ),
-            );
-          }
+          this.modelGroup = model;
           this.scene.add(this.modelGroup);
         }
 
@@ -146,6 +128,7 @@ function Index() {
             const camera = view.camera;
             const bottom = Math.floor(this.h * view.bottom);
             const height = Math.floor(this.h * view.height);
+            if (height <= 0) continue;
 
             this.renderer.setViewport(0, 0, this.w, this.h);
             this.renderer.setScissor(0, bottom, this.w, height);
@@ -163,8 +146,7 @@ function Index() {
           for (let ii = 0; ii < this.views.length; ++ii) {
             const camera = this.views[ii]!.camera;
             camera.aspect = this.w / this.h;
-            const camZ = (window.screen.width - this.w) / 3;
-            camera.position.z = camZ < 180 ? 180 : camZ;
+            camera.position.z = 180;
             camera.updateProjectionMatrix();
           }
           this.renderer.setSize(this.w, this.h);
@@ -179,17 +161,17 @@ function Index() {
 
         const ctx = gsap.context(() => {
           gsap.fromTo(
-            "canvas",
+            this.renderer.domElement,
             { x: "50%", autoAlpha: 0 },
             { duration: 1, x: "0%", autoAlpha: 1, delay: 0.5 },
           );
-          gsap.to(".loading", { autoAlpha: 0, delay: 3 });
+           gsap.to(".loading", { autoAlpha: 0, duration: 0.4 });
           gsap.to(".scroll-cta", { opacity: 1 });
           gsap.set("svg", { autoAlpha: 1 });
 
           const tau = Math.PI * 2;
           gsap.set(plane.rotation, { y: tau * -0.25 });
-          gsap.set(plane.position, { x: 80, y: -32, z: -60 });
+           gsap.set(plane.position, { x: 58, y: -18, z: 0 });
           scene.render();
 
           const sectionDuration = 1;
@@ -255,7 +237,7 @@ function Index() {
 
           let delay = 0;
           tl.to(".scroll-cta", { duration: 0.25, opacity: 0 }, delay);
-          tl.to(plane.position, { x: -10, ease: "power1.in" }, delay);
+           tl.to(plane.position, { x: -10, ease: "power1.in" }, delay);
 
           delay += sectionDuration;
           tl.to(plane.rotation, { x: tau * 0.25, y: 0, z: -tau * 0.05, ease: "power1.inOut" }, delay);
