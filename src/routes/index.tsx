@@ -161,7 +161,7 @@ function Index() {
 
         const ctx = gsap.context(() => {
           gsap.fromTo(
-            this.renderer.domElement,
+            scene.renderer.domElement,
             { x: "50%", autoAlpha: 0 },
             { duration: 1, x: "0%", autoAlpha: 1, delay: 0.5 },
           );
