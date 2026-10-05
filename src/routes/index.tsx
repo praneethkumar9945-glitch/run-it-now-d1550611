@@ -12,13 +12,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A scroll-driven 3D airplane story: watch a wireframe plane fly, bank and climb through the facts and figures.",
+          "A scroll-driven 3D passenger airplane story: follow a realistic jet as it flies, banks and climbs.",
       },
       { property: "og:title", content: "Airplanes — The beginners guide" },
       {
         property: "og:description",
         content:
-          "A scroll-driven 3D airplane story: watch a wireframe plane fly, bank and climb through the facts and figures.",
+          "A scroll-driven 3D passenger airplane story: follow a realistic jet as it flies, banks and climbs.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -66,7 +66,7 @@ function Index() {
           this.renderer.setSize(window.innerWidth, window.innerHeight);
           this.renderer.shadowMap.enabled = true;
           this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-          this.renderer.setPixelRatio(window.devicePixelRatio);
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
           document.body.appendChild(this.renderer.domElement);
 
           this.scene = new THREE.Scene();
@@ -86,14 +86,20 @@ function Index() {
             camera.lookAt(new THREE.Vector3(0, 5, 0));
           }
 
-          this.light = new THREE.PointLight(0xffffff, 0.75);
+          this.light = new THREE.PointLight(0xffffff, 2);
           this.light.position.z = 150;
           this.light.position.x = 70;
           this.light.position.y = -20;
           this.scene.add(this.light);
 
-          this.softLight = new THREE.AmbientLight(0xffffff, 1.5);
+          this.softLight = new THREE.AmbientLight(0xffffff, 2);
           this.scene.add(this.softLight);
+          const fill = new THREE.DirectionalLight(0xdceafb, 2);
+          fill.position.set(-60, 80, 40);
+          this.scene.add(fill);
+          const rim = new THREE.DirectionalLight(0xffffff, 1.5);
+          rim.position.set(30, 20, -90);
+          this.scene.add(rim);
 
           this.onResize();
           window.addEventListener("resize", this.onResize, false);
@@ -112,31 +118,7 @@ function Index() {
             this.renderer.dispose();
           });
 
-          try {
-            const edges = new THREE.EdgesGeometry(model.children[0].geometry);
-            const line = new THREE.LineSegments(edges);
-            (line.material as any).depthTest = false;
-            (line.material as any).opacity = 0.5;
-            (line.material as any).transparent = true;
-            line.position.x = 0.5;
-            line.position.z = -1;
-            line.position.y = 0.2;
-
-            this.modelGroup = new THREE.Group();
-            model.layers.set(0);
-            line.layers.set(1);
-            this.modelGroup.add(model);
-            this.modelGroup.add(line);
-          } catch (e) {
-            console.error("Model geometry error:", e);
-            this.modelGroup = new THREE.Group();
-            this.modelGroup.add(
-              new THREE.Mesh(
-                new THREE.PlaneGeometry(10, 10),
-                new THREE.MeshBasicMaterial({ color: 0xff0000 }),
-              ),
-            );
-          }
+          this.modelGroup = model;
           this.scene.add(this.modelGroup);
         }
 
@@ -146,6 +128,7 @@ function Index() {
             const camera = view.camera;
             const bottom = Math.floor(this.h * view.bottom);
             const height = Math.floor(this.h * view.height);
+            if (height <= 0) continue;
 
             this.renderer.setViewport(0, 0, this.w, this.h);
             this.renderer.setScissor(0, bottom, this.w, height);
@@ -163,8 +146,7 @@ function Index() {
           for (let ii = 0; ii < this.views.length; ++ii) {
             const camera = this.views[ii]!.camera;
             camera.aspect = this.w / this.h;
-            const camZ = (window.screen.width - this.w) / 3;
-            camera.position.z = camZ < 180 ? 180 : camZ;
+            camera.position.z = 180;
             camera.updateProjectionMatrix();
           }
           this.renderer.setSize(this.w, this.h);
@@ -179,17 +161,17 @@ function Index() {
 
         const ctx = gsap.context(() => {
           gsap.fromTo(
-            "canvas",
+            scene.renderer.domElement,
             { x: "50%", autoAlpha: 0 },
             { duration: 1, x: "0%", autoAlpha: 1, delay: 0.5 },
           );
-          gsap.to(".loading", { autoAlpha: 0, delay: 3 });
+           gsap.to(".loading", { autoAlpha: 0, duration: 0.4 });
           gsap.to(".scroll-cta", { opacity: 1 });
           gsap.set("svg", { autoAlpha: 1 });
 
           const tau = Math.PI * 2;
           gsap.set(plane.rotation, { y: tau * -0.25 });
-          gsap.set(plane.position, { x: 80, y: -32, z: -60 });
+           gsap.set(plane.position, { x: 58, y: -18, z: 0 });
           scene.render();
 
           const sectionDuration = 1;
@@ -255,7 +237,7 @@ function Index() {
 
           let delay = 0;
           tl.to(".scroll-cta", { duration: 0.25, opacity: 0 }, delay);
-          tl.to(plane.position, { x: -10, ease: "power1.in" }, delay);
+           tl.to(plane.position, { x: -10, ease: "power1.in" }, delay);
 
           delay += sectionDuration;
           tl.to(plane.rotation, { x: tau * 0.25, y: 0, z: -tau * 0.05, ease: "power1.inOut" }, delay);
@@ -314,109 +296,51 @@ function Index() {
       gsap.set("#line-wingspan", { strokeDasharray: 110, strokeDashoffset: 110 });
       gsap.set("#circle-phalange", { strokeDasharray: 94, strokeDashoffset: 94 });
 
-      // Build a detailed passenger airliner (nose points +Z)
-      const buildAirliner = () => {
-        const group = new THREE.Group();
-        const body = new THREE.MeshStandardMaterial({ color: 0xf4f6f8, metalness: 0.35, roughness: 0.35 });
-        const accent = new THREE.MeshStandardMaterial({ color: 0x1f4e8c, metalness: 0.3, roughness: 0.4 });
-        const dark = new THREE.MeshStandardMaterial({ color: 0x1a1d22, metalness: 0.6, roughness: 0.3 });
-        const glass = new THREE.MeshStandardMaterial({ color: 0x0d1b2a, metalness: 0.9, roughness: 0.1 });
-        const add = (g: any, m: any, p: [number, number, number] = [0, 0, 0], r?: [number, number, number]) => {
-          const mesh = new THREE.Mesh(g, m);
-          mesh.position.set(...p);
-          if (r) mesh.rotation.set(...r);
-          group.add(mesh);
-          return mesh;
-        };
-
-        // Fuselage via lathe profile (radius, length)
-        const L = 64;
-        const prof: any[] = [];
-        for (let i = 0; i <= 40; i++) {
-          const t = i / 40;
-          let r: number;
-          if (t < 0.12) r = 4 * Math.sqrt(t / 0.12) ** 0.9; // rounded nose
-          else if (t < 0.72) r = 4;
-          else r = 4 * (1 - ((t - 0.72) / 0.28) ** 1.6) + 0.5 * ((t - 0.72) / 0.28);
-          prof.push(new THREE.Vector2(Math.max(r, 0.01), t * L));
-        }
-        const fus = new THREE.LatheGeometry(prof, 40);
-        fus.rotateX(-Math.PI / 2); // length along -Z
-        fus.translate(0, 0, L / 2); // nose at +32
-        add(fus, body);
-
-        // Tail upsweep hint & belly stripe
-        add(new THREE.CylinderGeometry(4.05, 4.05, 40, 40, 1, true, Math.PI * 0.55, Math.PI * 0.9), accent, [0, 0, 2], [Math.PI / 2, 0, 0]);
-
-        // Cockpit windows
-        add(new THREE.SphereGeometry(2.6, 20, 12, 0, Math.PI * 2, 0, Math.PI / 5), glass, [0, 1.6, 26.5], [Math.PI / 2.6, 0, 0]);
-        // Cabin windows
-        const win = new THREE.BoxGeometry(0.25, 0.7, 0.55);
-        for (let z = 22; z > -14; z -= 1.6) {
-          add(win, glass, [4.0, 1.2, z]);
-          add(win, glass, [-4.0, 1.2, z]);
-        }
-        // Doors
-        const door = new THREE.BoxGeometry(0.25, 2.4, 1.3);
-        [23.5, -12].forEach((z) => {
-          add(door, accent, [4.02, 0.4, z]);
-          add(door, accent, [-4.02, 0.4, z]);
-        });
-
-        // Swept wing helper (side = 1 right, -1 left)
-        const wing = (side: number, rootZ: number, span: number, rootChord: number, tipChord: number, sweep: number, thick: number, y: number, dihedral: number, mat: any) => {
-          const s = new THREE.Shape();
-          s.moveTo(0, rootZ);
-          s.lineTo(side * span, rootZ - sweep);
-          s.lineTo(side * span, rootZ - sweep - tipChord);
-          s.lineTo(0, rootZ - rootChord);
-          s.lineTo(0, rootZ);
-          const g = new THREE.ExtrudeGeometry(s, { depth: thick, bevelEnabled: true, bevelThickness: thick * 0.4, bevelSize: 0.3, bevelSegments: 2 });
-          g.rotateX(Math.PI / 2);
-          g.rotateZ(side * dihedral);
-          g.translate(0, y + thick / 2, 0);
-          add(g, mat);
-          return { tipX: side * span * Math.cos(dihedral), tipY: y + span * Math.sin(dihedral), tipZ: rootZ - sweep };
-        };
-
-        // Main wings + winglets
-        [1, -1].forEach((side) => {
-          const tip = wing(side, 8, 34, 14, 3.5, 17, 0.8, -1.8, 0.08, body);
-          const wl = new THREE.Shape();
-          wl.moveTo(0, 0); wl.lineTo(-1.5, 4.5); wl.lineTo(-3, 4.5); wl.lineTo(-3.5, 0); wl.lineTo(0, 0);
-          const wg = new THREE.ExtrudeGeometry(wl, { depth: 0.3, bevelEnabled: false });
-          wg.rotateY(-Math.PI / 2);
-          const m = add(wg, accent, [tip.tipX, tip.tipY, tip.tipZ]);
-          m.rotation.z = -side * 0.15;
-
-          // Engine under wing
-          const ex = side * 11;
-          const ez = 7;
-          add(new THREE.CylinderGeometry(2.3, 1.9, 9, 28), body, [ex, -4.8, ez], [Math.PI / 2, 0, 0]);
-          add(new THREE.TorusGeometry(2.1, 0.3, 10, 28), accent, [ex, -4.8, ez + 4.5]);
-          add(new THREE.CircleGeometry(1.9, 28), dark, [ex, -4.8, ez + 4.3]);
-          add(new THREE.ConeGeometry(0.6, 1.6, 16), dark, [ex, -4.8, ez + 4.9], [Math.PI / 2, 0, 0]);
-          add(new THREE.ConeGeometry(1.4, 3, 20), dark, [ex, -4.8, ez - 5.8], [-Math.PI / 2, 0, 0]);
-          add(new THREE.BoxGeometry(0.6, 2.6, 6), body, [ex, -2.6, ez - 1]);
-
-          // Horizontal stabilizer
-          wing(side, -21, 12, 7, 2.5, 6, 0.5, 0.8, 0.12, body);
-        });
-
-        // Vertical fin
-        const fin = new THREE.Shape();
-        fin.moveTo(0, 0); fin.lineTo(-9, 12); fin.lineTo(-13, 12); fin.lineTo(-12, 0); fin.lineTo(0, 0);
-        const fg = new THREE.ExtrudeGeometry(fin, { depth: 0.6, bevelEnabled: true, bevelThickness: 0.2, bevelSize: 0.2, bevelSegments: 2 });
-        fg.rotateY(-Math.PI / 2);
-        add(fg, accent, [0.3, 2.5, -17]);
-
-        // Landing gear fairing
-        add(new THREE.BoxGeometry(6, 1.6, 10), body, [0, -3.6, 0]);
-
-        return group;
-      };
-
-      setupAnimation(buildAirliner());
+      // Public-domain jetliner mesh by NuclearOsmosis (OpenGameArt.org).
+      new OBJLoader().load(
+        "/models/jetliner.obj",
+        (aircraft) => {
+          if (disposed) return;
+          const paint = new THREE.MeshStandardMaterial({ color: 0xf0f3f4, metalness: 0.42, roughness: 0.35, side: THREE.DoubleSide });
+          const wingPaint = new THREE.MeshStandardMaterial({ color: 0xcbd4dc, metalness: 0.55, roughness: 0.34, side: THREE.DoubleSide });
+          const navy = new THREE.MeshStandardMaterial({ color: 0x16456c, metalness: 0.35, roughness: 0.36, side: THREE.DoubleSide });
+          const glass = new THREE.MeshStandardMaterial({ color: 0x122537, metalness: 0.5, roughness: 0.13 });
+          const intake = new THREE.MeshStandardMaterial({ color: 0x222b32, metalness: 0.64, roughness: 0.3, side: THREE.DoubleSide });
+          aircraft.traverse((child) => {
+            if (!(child instanceof THREE.Mesh)) return;
+            child.material = child.name.includes("Tail") ? navy : child.name.includes("Wings") || child.name.includes("TurboFans") ? wingPaint : paint;
+            child.castShadow = true;
+            child.receiveShadow = true;
+          });
+          const detail = new THREE.Group();
+          aircraft.add(detail);
+          const addDetail = (geometry: any, material: any, x: number, y: number, z: number) => {
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(x, y, z);
+            detail.add(mesh);
+            return mesh;
+          };
+          const windowShape = new THREE.SphereGeometry(0.105, 10, 8);
+          for (let z = -5.8; z < 6.2; z += 0.65) {
+            for (const side of [-1, 1]) {
+              const window = addDetail(windowShape, glass, side * 1.13, 6.43, z);
+              window.scale.set(0.38, 0.78, 1);
+            }
+          }
+          for (const side of [-1, 1]) {
+            const cockpit = addDetail(new THREE.SphereGeometry(0.34, 16, 10), glass, side * 0.48, 6.76, 7.28);
+            cockpit.scale.set(1.25, 0.4, 0.32);
+            addDetail(new THREE.CircleGeometry(0.46, 24), intake, side * 3.12, 4.74, 2.54);
+          }
+          const jet = new THREE.Group();
+          aircraft.position.y = -6.7;
+          jet.add(aircraft);
+          jet.scale.setScalar(4.5);
+          setupAnimation(jet);
+        },
+        undefined,
+        (error) => console.error("Passenger airplane model could not load", error),
+      );
     })();
 
     return () => {
